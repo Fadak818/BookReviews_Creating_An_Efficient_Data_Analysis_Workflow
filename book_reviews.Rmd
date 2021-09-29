@@ -1,0 +1,205 @@
+---
+title: "Book Reviews: Creating An Efficient Data Analysis Workflow"
+author: "Fadak Aldar"
+date: "9/21/2021"   
+output: html_document
+---
+   
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)  
+```
+
+<br>
+
+#### Introduction 
+This project's main goal is to become familiar with data processing or data processing. The dataset utlized contains sales data for a company selling Programming books. After cleaning data, we will answer few questions to get acquainted with the dataset.
+
+That dataset used in this project can be found here: [Book Reviews](https://data.world/dataquest/book-reviews).
+
+<br>
+
+
+#### Extracting and Exploring the dataset
+```{r libraries, message = FALSE}
+library(tidyverse)
+```
+
+```{r reading the csv file}
+#Loading the dataset
+book_reviews <- read.csv("book_reviews.csv")
+```
+
+```{r dim and col names}
+#Exploring dataset dimensions 
+dim(book_reviews)
+
+#column names
+col_names <- colnames(book_reviews)
+col_names
+
+head(book_reviews)
+# View(book_reviews)
+```
+```{r type}
+# this is one way to get the type for each column 
+for(column_name in col_names){
+type <- typeof(book_reviews[[column_name]])
+print(c(column_name, type))
+}
+
+```
+<br>
+Here, I will use glimpse() from the tibble library. This function can replace using the functions above; it provides rows and column numbers, column names and types, and a few rows. 
+
+Please bear in mind that I am still exploring, and trying to find my own coding style in R.  
+
+```{r}
+# here will use tibble library and glimpse function. this will get us all the information above in one function
+
+library(tibble)
+glimpse(book_reviews)
+```
+<br>
+The book_reviews dataset consists of:   
+
+1. 2000 rows and 4 columns   
+
+1. The columns and their types are:   
+  * 'book': character   
+  * 'review': character   
+  * 'state': character   
+  * 'price': number
+<br>
+<br>
+
+
+
+```{r}
+# finding unique values
+for (column in col_names){
+  unique_values <- unique(book_reviews[[column]])
+  print(c("unique values in the column:", column, unique_values))
+}
+
+```
+<br>
+  
+##### Issues with the dataset
+viewing the dataset as a table, two issues become apparent:   
+1. Missing values  
+1. Inconsistencies in the 'state' column  
+<br>
+
+##### Other bservations:  
+1. Books prices range from USD 15.99 - 50.00  
+1. Reviews are categorizes as: Poor, Fair, Good, Great, and Excellent  
+<br>
+
+```{r}
+
+# removing missing data
+# we create a new copy of the dataset with no missing values
+
+book_reviews_clean = book_reviews %>%
+  filter(!is.na(book)) %>%
+  filter(!is.na(review)) %>%
+  filter(!is.na(state)) %>%
+  filter(!is.na(price))
+
+# this removes NA values column by column
+# there must be a better way to remove all missing values from all rows instead of examining columns one by one?
+              
+
+dim(book_reviews_clean) # view dimensions to check if rows of missing data were deleted 
+
+```
+The new rows count is 1794, which means that we had 206 rows with missing values in the original dataset.
+
+<br>
+
+In the next step, we tackle inconsistencies in the 'state' column; some states are fully written and some are abbreviated, and we need to stick to one convention either full name like 'California' or abbreviation like 'CA'
+
+```{r}
+# from the unique() function we used before, we know that these are the unique values we have under 'state':
+#"TX"   ->  "Texas" 
+#"NY"   ->  "New York"                     
+#"FL"   ->  "Florida"                                        
+#"CA"   ->  "California" 
+
+# we only have 4 states in our data  
+
+
+
+#choosing a convention; here, I will choose states abbreviations
+
+book_reviews_clean <- book_reviews_clean %>%
+  mutate(
+    state = case_when(
+      state == "Calfornia" ~ "CA",
+      state == "Florida" ~ "FL",
+      state == "New York" ~ "NY",
+      state == "Texax" ~ "TX",
+      TRUE ~ state #this to ignore rows where it's already abbreviated
+    
+    )
+  )
+  
+```
+
+<br>
+In the coming step, we convert reviews in review column into numerical values for easier evaluation. 
+
+```{r}
+ 
+
+book_reviews_clean <- book_reviews_clean %>%
+  mutate(
+    review_num = case_when(
+      review == "Poor" ~ 1,
+      review == "Fair" ~ 2,
+      review == "Good" ~ 3,
+      review == "Great" ~ 4,
+      review == "Excellent" ~ 5
+    ),
+    is_high_review = if_else(review_num >= 4, TRUE, FALSE)
+  )
+
+head(book_reviews_clean)
+```
+
+Now that we have cleaned our data, we can start with our primary analysis. We want to find the most profitable book; and this depends on what metric we choose to define "the most profitable".
+
+We will examine two options:   
+
+1. Using the sum of prices for each book to find out which book generated the most money. This is basically the revenue (revenue = units sold * price per unit)
+
+1. Finding out which book title was the most repeated one, which means that it had the highest number of purchases 
+<br>
+
+```{r}
+#to find out which book generated the highest profit
+book_reviews_clean %>%
+  group_by(book) %>%
+  summarize(
+    profit = sum(price)
+  ) %>%
+  arrange(-profit)
+```
+The book the generate the most profit is _Secrets Of R For Advanced Students_ with a total of USD 18,000. 
+<br>
+<br>
+
+Let us examine the other metric in which a book is has the heights purchases.
+
+```{r}
+book_reviews_clean %>%
+  group_by(book) %>%
+  summarize(
+    times_purchased = n()
+  ) %>%
+  arrange(-times_purchased)
+```
+It looks like the  _Fundamentals of R For Beginners_ is quite popular among readers although there is not a huge difference between the number of purchases among all books. If we look closer, we find 14 purchases difference between the most purchased _Fundamentals of R For Beginners_ and the least purchased book _R Made Easy_ . 
+<br>
+<br>
+
